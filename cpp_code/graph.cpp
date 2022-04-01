@@ -1,5 +1,6 @@
 #include "graph.h"
 #include <cstdio>
+#include <iostream>
 
 Graph::Graph()
 {
@@ -12,8 +13,10 @@ Graph::Graph(int n)
 		We also create lists of incoming and outgoing arcs, we need them for DFS and looking for critical sections
 	*/
     vertices_number = n;
-    arcs_exiting_vertex.resize(n);
-    arcs_entering_vertex.resize(n);
+    arcs_exiting_vertex.resize(n+100);
+    arcs_entering_vertex.resize(n+100);
+    find_exiting_vertex.resize(n+100);
+    find_entering_vertex.resize(n+100);
 }
 
 Graph::~Graph()
@@ -27,6 +30,8 @@ void Graph::addArc(int from, int to, int length)
 	*/
     Arc outgoing_arc = {to, length};
     Arc incoming_arc = {from, length};
+    find_exiting_vertex[from][to]=length;
+    find_exiting_vertex[to][from]=length;
     arcs_exiting_vertex[from].push_back(outgoing_arc);
     arcs_entering_vertex[to].push_back(incoming_arc);
 }
@@ -65,15 +70,10 @@ Arc Graph::getArc(int from, int to)
     /*
         Returns arc from vertex "from" to vertex "to"
 	*/
-    for (Vertex::iterator it = arcs_exiting_vertex[from].begin(); it != arcs_exiting_vertex[from].end(); it++)  //for every outgoing arc
-    {
-        if (it->vertex_id == to)    //if found arc which enters "to"
-        {
-            return *it;     //return this arc
-        }
-    }
+    Arc ret = { to,find_exiting_vertex[from][to]};
+    return ret;
     printf("Arc form %d to %d does not exist\n", from, to);
-
+    
 }
 
 int Graph::getArcLength(int from, int to)
@@ -91,11 +91,14 @@ void Graph::deleteArc(int from, int to)
 		Removes arc from vertex "from" to vertex "to"
 	*/
     bool erased = false;
+    
+    
     for (Vertex::iterator it = arcs_exiting_vertex[from].begin(); it != arcs_exiting_vertex[from].end(); it++) //for every arc exiting vertex
     {
         if (it->vertex_id == to)    //if arc enters vertex "to"
         {
             arcs_exiting_vertex[from].erase(it);    //erase the arc
+            find_exiting_vertex[from].erase(to);
             erased = true;
             break;
         }
@@ -104,6 +107,7 @@ void Graph::deleteArc(int from, int to)
     {
         if (it->vertex_id == from)  //if arc exits vertex "from"
         {
+            find_exiting_vertex[to].erase(from);
             arcs_entering_vertex[to].erase(it); //erase the arc
             break;
         }
@@ -129,7 +133,7 @@ vector<int> Graph::maxDistances()
 {
     /*
         Returns vector of the maximum distances from source to every vertex
-	*/
+    */
     vector<int> distances;  //creating vector of distances for every vertex
     int n = vertices_number;
 
@@ -137,28 +141,31 @@ vector<int> Graph::maxDistances()
 
     deque<int> topo = topologicalSort();   //topological sort of vertexes
 
-    for (int j = 0; j < n; j++) //setting all distances to minimum, which is 0 in our case
-    {
-        distances[topo[j]] = 0;
-    }
-
-    for (int j = 1; j < n; j++) //for every vertex except source, which distance is minimum anyway
-    {
-        for (int i = 0; i < arcs_entering_vertex[topo[j]].size(); i++)  //for every vertex which is connected to our j vertex (arc has to enter j vertex)
+    if (!topo.empty()) {
+        for (int j = 0; j < n; j++) //setting all distances to minimum, which is 0 in our case
         {
-            int a = distances[topo[j]];
+            distances[topo[j]] = 0;
+        }
 
-            int b = distances[arcs_entering_vertex[topo[j]][i].vertex_id];
+        for (int j = 1; j < n; j++) //for every vertex except source, which distance is minimum anyway
+        {
+            for (int i = 0; i < arcs_entering_vertex[topo[j]].size(); i++)  //for every vertex which is connected to our j vertex (arc has to enter j vertex)
+            {
+                int a = distances[topo[j]];
 
-            Arc arc = getArc(arcs_entering_vertex[topo[j]][i].vertex_id, topo[j]);
-            int c = arc.length;
+                int b = distances[arcs_entering_vertex[topo[j]][i].vertex_id];
 
-            distances[topo[j]] = max(a, b + c); //distance is max out of current distance and distance of neighbouring vertex plus length of an arc
+                Arc arc = getArc(arcs_entering_vertex[topo[j]][i].vertex_id, topo[j]);
+                int c = arc.length;
+
+                distances[topo[j]] = max(a, b + c); //distance is max out of current distance and distance of neighbouring vertex plus length of an arc
+            }
         }
     }
 
     return distances;
 }
+
 
 deque<int> Graph::criticalPath(int sink)
 {
@@ -194,7 +201,7 @@ deque<int> Graph::criticalPath(int sink)
     return path;
 }
 
-void Graph::createAcyclicClique(vector<int> vertices, vector<int> lengths)
+void Graph::createAcyclicClique(vector<int> &vertices, vector<int> &lengths)
 {
     /*
         Creates disjunctive arcs between every pair of vertexes from "vertices".

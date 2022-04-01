@@ -5,6 +5,8 @@
 #include <deque>
 #include <algorithm>
 #include <cstdio>
+#include <unordered_map>
+#include <map>
 
 using namespace std;
 
@@ -32,7 +34,7 @@ class Graph
 	void invertArc(int from, int to);				   // Inverts the direction of the arc
 	bool getCycleExists(); 
 
-	void createAcyclicClique(vector<int> vertices, vector<int> lengths); // Creates disjunctive arcs between every pair of vertexes from "vertices".
+	void createAcyclicClique(vector<int> &vertices, vector<int> &lengths); // Creates disjunctive arcs between every pair of vertexes from "vertices".
 
 	vector<int> maxDistances();			// Returns vector of the maximum distances from source to every vertex
 	deque<int> criticalPath(int sink); // Returns the critical path from source to sink, which is simply the longest possible path
@@ -40,6 +42,8 @@ class Graph
 
   private:
 	int vertices_number;	// Number of vertices in graph
+	vector<unordered_map<int,int>> find_exiting_vertex;
+	vector<unordered_map<int,int>> find_entering_vertex;
 	Vertices arcs_exiting_vertex; // List of successors needed for DFS
 	Vertices arcs_entering_vertex; // List of predecessors needed for longest path search
 
